@@ -1,0 +1,9 @@
+data/frames/
+data/history/
+data/eval_pool/
+data/today.json
+data/calibration.jsonl
+data/feedback.jsonl
+__pycache__/
+*.pyc
+.DS_Store

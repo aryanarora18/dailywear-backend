@@ -1,0 +1,182 @@
+[
+ {
+  "name": "Broadway @ 38 St",
+  "id": "83655dbc-7902-4fdb-926c-15fee4396b83",
+  "url": "https://webcams.nyctmc.org/api/cameras/83655dbc-7902-4fdb-926c-15fee4396b83/image",
+  "noon_n": 72
+ },
+ {
+  "name": "6 Ave @ 39 St",
+  "id": "34674be5-4791-47f1-b0b2-2db0ff619732",
+  "url": "https://webcams.nyctmc.org/api/cameras/34674be5-4791-47f1-b0b2-2db0ff619732/image",
+  "noon_n": 42
+ },
+ {
+  "name": "Broadway @ 6 Ave / 33 St",
+  "id": "8ee72946-49e0-4f49-991d-4f52b1206ed7",
+  "url": "https://webcams.nyctmc.org/api/cameras/8ee72946-49e0-4f49-991d-4f52b1206ed7/image",
+  "noon_n": 42
+ },
+ {
+  "name": "5 Ave @ 57 St",
+  "id": "9c4c2657-6796-4953-bbe6-c50f24bb5820",
+  "url": "https://webcams.nyctmc.org/api/cameras/9c4c2657-6796-4953-bbe6-c50f24bb5820/image",
+  "noon_n": 24
+ },
+ {
+  "name": "7 AVE @ 42 St",
+  "id": "bca4a4b0-d73f-4937-9301-85ff8293bd94",
+  "url": "https://webcams.nyctmc.org/api/cameras/bca4a4b0-d73f-4937-9301-85ff8293bd94/image",
+  "noon_n": 24
+ },
+ {
+  "name": "6 Ave @ 42 St",
+  "id": "c34ca47e-e375-4b9f-a8d7-f9737566b783",
+  "url": "https://webcams.nyctmc.org/api/cameras/c34ca47e-e375-4b9f-a8d7-f9737566b783/image",
+  "noon_n": 24
+ },
+ {
+  "name": "Broadway @ Morris St",
+  "id": "08328372-55a2-448a-b180-9b4bce0b8d9e",
+  "url": "https://webcams.nyctmc.org/api/cameras/08328372-55a2-448a-b180-9b4bce0b8d9e/image",
+  "noon_n": 22
+ },
+ {
+  "name": "E 8 St @ Lafayette St",
+  "id": "3546896d-d4c6-4966-8a43-2fe62e26526f",
+  "url": "https://webcams.nyctmc.org/api/cameras/3546896d-d4c6-4966-8a43-2fe62e26526f/image",
+  "noon_n": 22
+ },
+ {
+  "name": "Lenox Ave @ 125 St",
+  "id": "156b0613-239a-4e77-aa0e-0a4becfc0b05",
+  "url": "https://webcams.nyctmc.org/api/cameras/156b0613-239a-4e77-aa0e-0a4becfc0b05/image",
+  "noon_n": 17
+ },
+ {
+  "name": "Broadway @ 43 St",
+  "id": "d8122408-7092-41ba-a9db-ef8847edeaef",
+  "url": "https://webcams.nyctmc.org/api/cameras/d8122408-7092-41ba-a9db-ef8847edeaef/image",
+  "noon_n": 17
+ },
+ {
+  "name": "5 Ave @ 34 St",
+  "id": "3a3d7bc0-7f35-46ba-9cca-75fe83aac34d",
+  "url": "https://webcams.nyctmc.org/api/cameras/3a3d7bc0-7f35-46ba-9cca-75fe83aac34d/image",
+  "noon_n": 12
+ },
+ {
+  "name": "Broadway @ 96 St",
+  "id": "769a2e94-5bbc-4a03-86a7-39d3a70213f7",
+  "url": "https://webcams.nyctmc.org/api/cameras/769a2e94-5bbc-4a03-86a7-39d3a70213f7/image",
+  "noon_n": 12
+ },
+ {
+  "name": "5 Ave @ 59 St",
+  "id": "b5a78bda-3ca9-4ad4-bd03-4cee70baba2d",
+  "url": "https://webcams.nyctmc.org/api/cameras/b5a78bda-3ca9-4ad4-bd03-4cee70baba2d/image",
+  "noon_n": 12
+ },
+ {
+  "name": "2 Ave @ 79 St",
+  "id": "074b4e06-5090-47a5-b672-8b15780c9255",
+  "url": "https://webcams.nyctmc.org/api/cameras/074b4e06-5090-47a5-b672-8b15780c9255/image",
+  "noon_n": 12
+ },
+ {
+  "name": "9 AVE @ 14 St",
+  "id": "8437bc26-9eb8-4915-93f7-f8ea4170e739",
+  "url": "https://webcams.nyctmc.org/api/cameras/8437bc26-9eb8-4915-93f7-f8ea4170e739/image",
+  "noon_n": 10
+ },
+ {
+  "name": "Park Ave @ 86 St",
+  "id": "b7e5959c-1fc5-4fd2-a73e-426127b587b1",
+  "url": "https://webcams.nyctmc.org/api/cameras/b7e5959c-1fc5-4fd2-a73e-426127b587b1/image",
+  "noon_n": 9
+ },
+ {
+  "name": "6 Ave @ 34 St",
+  "id": "f06979b2-3497-4330-9882-a06c8a442b7c",
+  "url": "https://webcams.nyctmc.org/api/cameras/f06979b2-3497-4330-9882-a06c8a442b7c/image",
+  "noon_n": 7
+ },
+ {
+  "name": "7 Ave @ 32 St",
+  "id": "1e60ade7-c760-48cf-acd9-d9d6cbfa9420",
+  "url": "https://webcams.nyctmc.org/api/cameras/1e60ade7-c760-48cf-acd9-d9d6cbfa9420/image",
+  "noon_n": 7
+ },
+ {
+  "name": "Lexington Ave @ E 110 Street",
+  "id": "0cef143f-b3d8-4066-84ee-6114fa6e76e0",
+  "url": "https://webcams.nyctmc.org/api/cameras/0cef143f-b3d8-4066-84ee-6114fa6e76e0/image",
+  "noon_n": 7
+ },
+ {
+  "name": "Rockefeller Plaza @ W 49 St",
+  "id": "09d9335c-097e-47ef-af1d-122eb3206f7c",
+  "url": "https://webcams.nyctmc.org/api/cameras/09d9335c-097e-47ef-af1d-122eb3206f7c/image",
+  "noon_n": 7
+ },
+ {
+  "name": "8 AVE @ 44 St",
+  "id": "5c505897-b475-4359-897d-b064bdb9feef",
+  "url": "https://webcams.nyctmc.org/api/cameras/5c505897-b475-4359-897d-b064bdb9feef/image",
+  "noon_n": 7
+ },
+ {
+  "name": "2 Ave @ 72 St",
+  "id": "5674d0ea-703a-43c3-bea7-2b372d1eb00b",
+  "url": "https://webcams.nyctmc.org/api/cameras/5674d0ea-703a-43c3-bea7-2b372d1eb00b/image",
+  "noon_n": 7
+ },
+ {
+  "name": "St Nicholas Ave @ 125 St",
+  "id": "98b37dd5-bd64-4ace-add0-37f5135df600",
+  "url": "https://webcams.nyctmc.org/api/cameras/98b37dd5-bd64-4ace-add0-37f5135df600/image",
+  "noon_n": 7
+ },
+ {
+  "name": "Lexington Ave @ 57 ST",
+  "id": "180dcc87-d861-43e3-8898-9ad5ee1a26a9",
+  "url": "https://webcams.nyctmc.org/api/cameras/180dcc87-d861-43e3-8898-9ad5ee1a26a9/image",
+  "noon_n": 7
+ },
+ {
+  "name": "Jamaica Ave @ 168 St",
+  "id": "52399045-4691-4258-8f82-12000f5719a8",
+  "url": "https://webcams.nyctmc.org/api/cameras/52399045-4691-4258-8f82-12000f5719a8/image",
+  "noon_n": 7
+ },
+ {
+  "name": "7 AVE / ADAM CLAYTON POWELL BLVD@ 125 St",
+  "id": "9bb33444-d2ec-47bd-952a-174f87013736",
+  "url": "https://webcams.nyctmc.org/api/cameras/9bb33444-d2ec-47bd-952a-174f87013736/image",
+  "noon_n": 7
+ },
+ {
+  "name": "1 Avenue @ East 60 Street",
+  "id": "9aeb8a21-e4be-459a-ac9c-9ac282f0f929",
+  "url": "https://webcams.nyctmc.org/api/cameras/9aeb8a21-e4be-459a-ac9c-9ac282f0f929/image",
+  "noon_n": 7
+ },
+ {
+  "name": "Broadway @ 46 St",
+  "id": "0c9a2836-c408-48d3-85c7-1977c33d9133",
+  "url": "https://webcams.nyctmc.org/api/cameras/0c9a2836-c408-48d3-85c7-1977c33d9133/image",
+  "noon_n": 7
+ },
+ {
+  "name": "5 Ave @ 47 St",
+  "id": "03a8a2da-3ac2-45aa-a5ba-4ff7d1ecbd22",
+  "url": "https://webcams.nyctmc.org/api/cameras/03a8a2da-3ac2-45aa-a5ba-4ff7d1ecbd22/image",
+  "noon_n": 7
+ },
+ {
+  "name": "Columbus Ave @ 65 St",
+  "id": "04e09ed5-2d97-4e29-8438-b87748850dbb",
+  "url": "https://webcams.nyctmc.org/api/cameras/04e09ed5-2d97-4e29-8438-b87748850dbb/image",
+  "noon_n": 6
+ }
+]
