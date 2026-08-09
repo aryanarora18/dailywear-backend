@@ -625,6 +625,11 @@ def api_push_morning(request: Request):
                     pruned += 1
                 else:
                     failed += 1
+            except Exception as e:
+                # malformed subscription (bad keys etc.) — drop it, never crash the send run
+                print(f"[push] dropping malformed sub: {str(e)[:80]}", flush=True)
+                subs.pop(ep)
+                pruned += 1
         _save_subs(subs)
     return {"sent": sent, "pruned": pruned, "failed": failed}
 
