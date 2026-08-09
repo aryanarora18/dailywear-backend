@@ -533,6 +533,102 @@ def run_sweep() -> dict:
     return today
 
 
+# ---------- push notifications ----------
+
+VAPID_SUB = os.getenv("VAPID_SUB", "mailto:destinationaryan@gmail.com")
+VAPID_PEM = None
+if os.getenv("VAPID_PRIVATE_B64"):
+    VAPID_PEM = "/tmp/vapid.pem"
+    open(VAPID_PEM, "wb").write(base64.b64decode(os.environ["VAPID_PRIVATE_B64"]))
+
+
+def _load_subs() -> dict:
+    subs = {}
+    try:
+        for line in open(os.path.join(DATA, "subscriptions.jsonl")):
+            s = json.loads(line)
+            subs[s["endpoint"]] = s
+    except FileNotFoundError:
+        pass
+    return subs
+
+
+def _save_subs(subs: dict):
+    with open(os.path.join(DATA, "subscriptions.jsonl"), "w") as f:
+        for s in subs.values():
+            f.write(json.dumps(s) + "\n")
+    gcs_put("subscriptions.jsonl")
+
+
+def _strip(s: str) -> str:
+    import re
+    return re.sub(r"<[^>]+>", "", s or "")
+
+
+class SubReq(BaseModel):
+    subscription: dict
+
+
+@app.post("/api/subscribe")
+def api_subscribe(req: SubReq):
+    sub = req.subscription
+    if not str(sub.get("endpoint", "")).startswith("https://"):
+        raise HTTPException(400, "bad subscription")
+    with _lock:
+        subs = _load_subs()
+        subs[sub["endpoint"]] = sub
+        _save_subs(subs)
+    return {"ok": True, "subscribers": len(subs)}
+
+
+class UnsubReq(BaseModel):
+    endpoint: str
+
+
+@app.post("/api/unsubscribe")
+def api_unsubscribe(req: UnsubReq):
+    with _lock:
+        subs = _load_subs()
+        subs.pop(req.endpoint, None)
+        _save_subs(subs)
+    return {"ok": True}
+
+
+@app.post("/api/push-morning")
+def api_push_morning(request: Request):
+    token = os.getenv("SWEEP_TOKEN")
+    if token and request.headers.get("x-sweep-token") != token:
+        raise HTTPException(403)
+    if not VAPID_PEM:
+        raise HTTPException(503, "no vapid key configured")
+    from pywebpush import webpush, WebPushException
+    try:
+        today = json.load(open(os.path.join(DATA, "today.json")))
+    except Exception:
+        raise HTTPException(503, "no sweep yet")
+    title = "DailyWear · " + _strip(today.get("verdict_html", "good morning"))
+    body = today.get("plan") or _strip(today.get("sub_html", ""))
+    if today.get("advisories"):
+        body += " · " + today["advisories"][0]
+    payload = json.dumps({"title": title, "body": body[:180]})
+    sent = pruned = failed = 0
+    with _lock:
+        subs = _load_subs()
+        for ep, sub in list(subs.items()):
+            try:
+                webpush(subscription_info=sub, data=payload, ttl=3600 * 3,
+                        vapid_private_key=VAPID_PEM, vapid_claims={"sub": VAPID_SUB})
+                sent += 1
+            except WebPushException as e:
+                if e.response is not None and e.response.status_code in (404, 410):
+                    subs.pop(ep)
+                    pruned += 1
+                else:
+                    failed += 1
+        _save_subs(subs)
+    return {"sent": sent, "pruned": pruned, "failed": failed}
+
+
 # ---------- api ----------
 
 class FeedbackReq(BaseModel):

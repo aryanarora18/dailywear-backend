@@ -3,3 +3,4 @@ uvicorn[standard]==0.30.*
 requests==2.32.*
 pydantic>=2
 google-cloud-storage==2.*
+pywebpush==2.*
