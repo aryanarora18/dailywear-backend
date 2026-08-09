@@ -169,7 +169,7 @@ def day_plan(wx: dict) -> str:
 
 
 def advisories(wx: dict) -> list:
-    """Audience-native comfort intel from data the cameras can't see."""
+    """Audience-native comfort intel. Returns (site_text, push_text) pairs."""
     if not wx.get("ok"):
         return []
     out = []
@@ -178,18 +178,42 @@ def advisories(wx: dict) -> list:
     wind = max((p["wind"] for p in hrs[:8]), default=0)
     t = wx["now_temp"]
     if dew is not None and dew >= 70:
-        out.append(f"Dewpoint {dew}. Full frizz conditions, hair-tie weather.")
+        out.append((f"Dewpoint {dew}. Full frizz conditions, hair-tie weather.",
+                    "Full frizz humidity, bring a hair tie."))
     elif dew is not None and dew >= 65:
-        out.append(f"A little humid today ({dew} dewpoint). Hair will notice.")
+        out.append((f"A little humid today ({dew} dewpoint). Hair will notice.",
+                    "A little humid, hair will notice."))
     if wind >= 18:
-        out.append(f"Windy on the avenues, around {wind} mph. Maybe not the flowy skirt day.")
+        out.append((f"Windy on the avenues, around {wind} mph. Maybe not the flowy skirt day.",
+                    "Windy, maybe skip the flowy skirt."))
     if t >= 85:
-        out.append("Subway platforms run about 15 degrees hotter than the street. Dress for the platform.")
+        out.append(("Subway platforms run about 15 degrees hotter than the street. Dress for the platform.",
+                    "Platforms run hotter, dress for the subway."))
     if t >= 88:
-        out.append("Every office and store will overcorrect the AC. Keep a desk layer handy.")
+        out.append(("Every office and store will overcorrect the AC. Keep a desk layer handy.",
+                    "Offices will blast the AC."))
     if t <= 25:
-        out.append("Overheated stores and subway cars ahead. Layers you can peel beat one big coat.")
+        out.append(("Overheated stores and subway cars ahead. Layers you can peel beat one big coat.",
+                    "Wear peelable layers."))
     return out[:3]
+
+
+def day_plan_short(wx: dict) -> str:
+    if not wx.get("ok") or not wx.get("hourly"):
+        return ""
+    hrs = wx["hourly"]
+    t0 = hrs[0]["t"]
+    peak = max(hrs, key=lambda p: p["t"])
+    evening = next((p for p in hrs if p["h"] in (21, 22)), hrs[-1])
+    def ampm(hh):
+        return f"{hh % 12 or 12}{'pm' if hh >= 12 else 'am'}"
+    if peak["t"] - t0 >= 8 and peak["t"] - evening["t"] >= 8:
+        return f"{t0}° now, {peak['t']}° by {ampm(peak['h'])}. Dress for the afternoon and carry a layer."
+    if peak["t"] - t0 >= 8:
+        return f"Climbing to {peak['t']}° by {ampm(peak['h'])}, dress for later."
+    if t0 - evening["t"] >= 8:
+        return f"Warmest now, {evening['t']}° tonight. Bring the layer."
+    return f"Steady {t0}° all day, one outfit does it."
 
 
 def yesterday_reference() -> Optional[dict]:
@@ -391,15 +415,21 @@ def build_today(cam_results: list) -> dict:
                          "boxes": [{"box_2d": p["box_2d"], "label": short_label(p)} for p in r["people"]]})
     cams_out.sort(key=lambda c: -c["people"])
 
-    adv = advisories(wx)
+    adv_pairs = advisories(wx)
     od = overdress_advisory()
     if od:
-        adv = [od] + adv
+        adv_pairs = [(od, "Yesterday's jackets got carried home by noon.")] + adv_pairs
+    adv = [a[0] for a in adv_pairs]
+    push_title = __import__("re").sub(r"<[^>]+>", "", verdict)
+    push_body = day_plan_short(wx)
+    if adv_pairs and len(push_body) + len(adv_pairs[0][1]) < 130:
+        push_body = (push_body + " " + adv_pairs[0][1]).strip()
     wx_out = {k: v for k, v in wx.items() if k != "hourly"} if wx.get("ok") else None
     today = {"generated_at": now_et().isoformat(timespec="seconds"),
              "hello": hello, "verdict_html": verdict, "sub_html": sub,
              "band": band, "implied_temp": implied, "sampled": n,
              "weather": wx_out, "plan": day_plan(wx), "advisories": adv[:3],
+             "push": {"title": push_title, "body": push_body},
              "wearing": rows, "cams": cams_out[:6],
              "arc": build_arc(band, noun, wx), "agg": agg}
     return today
@@ -613,11 +643,10 @@ def api_push_morning(request: Request):
         today = json.load(open(os.path.join(DATA, "today.json")))
     except Exception:
         raise HTTPException(503, "no sweep yet")
-    title = "DailyWear · " + _strip(today.get("verdict_html", "good morning"))
-    body = today.get("plan") or _strip(today.get("sub_html", ""))
-    if today.get("advisories"):
-        body += " · " + today["advisories"][0]
-    payload = json.dumps({"title": title, "body": body[:180]})
+    push = today.get("push") or {}
+    title = push.get("title") or _strip(today.get("verdict_html", "Good morning"))
+    body = push.get("body") or today.get("plan") or _strip(today.get("sub_html", ""))
+    payload = json.dumps({"title": title, "body": body[:150]})
     sent = pruned = failed = 0
     with _lock:
         subs = _load_subs()
