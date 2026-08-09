@@ -38,7 +38,8 @@ PROMPT = (
     "(sidewalks/crosswalks; ignore people in vehicles, reflections, tiny distant figures — only "
     "people taller than about 1/10 of the frame). For each: box_2d [ymin,xmin,ymax,xmax] 0-1000; "
     "outer (jacket_or_coat, hoodie, long_sleeve, short_sleeve, sleeveless, unclear); bottoms "
-    "(shorts, long_pants, skirt_or_dress, unclear); umbrella; confidence 0-1. Use 'unclear' freely "
+    "(shorts, long_pants, skirt_or_dress, unclear); top_color (dominant color of their top garment); "
+    "umbrella; confidence 0-1. Use 'unclear' freely "
     "when you cannot really tell. Also scene_ok: true only if lighting/visibility would let a human "
     "verify your answers. Strictly JSON."
 )
@@ -48,8 +49,11 @@ SCHEMA = {"type": "OBJECT", "properties": {
         "box_2d": {"type": "ARRAY", "items": {"type": "INTEGER"}},
         "outer": {"type": "STRING", "enum": ["jacket_or_coat", "hoodie", "long_sleeve", "short_sleeve", "sleeveless", "unclear"]},
         "bottoms": {"type": "STRING", "enum": ["shorts", "long_pants", "skirt_or_dress", "unclear"]},
+        "top_color": {"type": "STRING", "enum": ["black", "white", "gray", "blue", "denim", "red", "green",
+                                                  "yellow", "orange", "pink", "purple", "brown", "beige",
+                                                  "patterned", "unclear"]},
         "umbrella": {"type": "BOOLEAN"}, "confidence": {"type": "NUMBER"}},
-        "required": ["box_2d", "outer", "bottoms", "umbrella", "confidence"]}}},
+        "required": ["box_2d", "outer", "bottoms", "top_color", "umbrella", "confidence"]}}},
     "required": ["scene_ok", "people"]}
 
 
@@ -117,11 +121,112 @@ def nws() -> dict:
         temps = [p["temperature"] for p in dp[:2]]
         rain_words = ("rain", "shower", "storm", "drizzle")
         issue = next((p["shortForecast"] for p in hp[:12] if any(w in p["shortForecast"].lower() for w in rain_words)), None)
+
+        def mph(s):
+            try:
+                return int(str(s).split()[0])
+            except Exception:
+                return 0
+        hourly = []
+        for p in hp[:16]:
+            dpc = (p.get("dewpoint") or {}).get("value")
+            hourly.append({"h": datetime.fromisoformat(p["startTime"]).hour, "t": p["temperature"],
+                           "dew": round(dpc * 9 / 5 + 32) if dpc is not None else None,
+                           "wind": mph(p.get("windSpeed"))})
         return {"now_temp": now["temperature"], "feels": now["temperature"], "cond": now["shortForecast"],
                 "high": max(temps), "low": min(temps), "tonight_temp": tonight["temperature"],
-                "issue": (f"{issue} later" if issue else "No rain expected"), "ok": True}
+                "issue": (f"{issue} later" if issue else "No rain expected"), "ok": True,
+                "hourly": hourly}
     except Exception:
         return {"ok": False}
+
+
+def day_plan(wx: dict) -> str:
+    """Turn the hourly curve into one outfit decision for the whole day."""
+    if not wx.get("ok") or not wx.get("hourly"):
+        return ""
+    hrs = wx["hourly"]
+    t0 = hrs[0]["t"]
+    peak = max(hrs, key=lambda p: p["t"])
+    evening = next((p for p in hrs if p["h"] in (21, 22)), hrs[-1])
+    def ampm(h):
+        return f"{h % 12 or 12}{'pm' if h >= 12 else 'am'}"
+    if peak["t"] - t0 >= 8 and peak["t"] - evening["t"] >= 8:
+        return (f"It's {t0}° now but {peak['t']}° by {ampm(peak['h'])}, then back to {evening['t']}° tonight — "
+                f"dress for the afternoon, carry the layer for the ride home.")
+    if peak["t"] - t0 >= 8:
+        return f"It only climbs from here — {peak['t']}° by {ampm(peak['h'])}. Dress for later, not for now."
+    if t0 - evening["t"] >= 8:
+        return f"This is the warm part — {evening['t']}° by tonight. Whatever you skip now, you'll want at 9pm."
+    return f"Steady around {t0}° all day — one outfit covers you start to finish."
+
+
+def advisories(wx: dict) -> list:
+    """Audience-native comfort intel from data the cameras can't see."""
+    if not wx.get("ok"):
+        return []
+    out = []
+    hrs = wx.get("hourly") or []
+    dew = next((p["dew"] for p in hrs if p["dew"] is not None), None)
+    wind = max((p["wind"] for p in hrs[:8]), default=0)
+    t = wx["now_temp"]
+    if dew is not None and dew >= 70:
+        out.append(f"Dewpoint {dew}° — full frizz conditions. Hair-tie weather.")
+    elif dew is not None and dew >= 65:
+        out.append(f"A little humid ({dew}° dewpoint) — hair will notice.")
+    if wind >= 18:
+        out.append(f"Windy on the avenues (~{wind} mph) — maybe not the flowy skirt day.")
+    if t >= 85:
+        out.append("Subway platforms run ~15° hotter than the street — dress for the platform.")
+    if t >= 88:
+        out.append("Every office and store will overcorrect the AC — desk layer advised.")
+    if t <= 25:
+        out.append("Overheated stores and subway cars ahead — layers you can peel beat one big coat.")
+    return out[:3]
+
+
+def yesterday_reference() -> Optional[dict]:
+    """Yesterday's sweep nearest to this hour (n>=25), for delta headlines."""
+    try:
+        y = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        best = None
+        hdir = os.path.join(DATA, "history")
+        for f in os.listdir(hdir):
+            if f.startswith(y):
+                h = json.load(open(os.path.join(hdir, f)))
+                if h.get("sampled", 0) >= 25:
+                    gap = abs(datetime.fromisoformat(h["generated_at"]).hour - datetime.now().hour)
+                    if best is None or gap < best[0]:
+                        best = (gap, h)
+        return best[1] if best and best[0] <= 2 else None
+    except Exception:
+        return None
+
+
+def overdress_advisory() -> Optional[str]:
+    """Did yesterday's morning jackets get abandoned by noon? Then say so this morning."""
+    if datetime.now().hour >= 11:
+        return None
+    try:
+        y = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        hdir = os.path.join(DATA, "history")
+        am, noon = [], []
+        for f in os.listdir(hdir):
+            if f.startswith(y):
+                h = json.load(open(os.path.join(hdir, f)))
+                agg = h.get("agg")
+                if not agg or h.get("sampled", 0) < 25:
+                    continue
+                hr = datetime.fromisoformat(h["generated_at"]).hour
+                if 7 <= hr <= 10:
+                    am.append(agg["jacket_rate"] + agg["hoodie_rate"])
+                elif 12 <= hr <= 15:
+                    noon.append(agg["jacket_rate"] + agg["hoodie_rate"])
+        if am and noon and max(am) >= 0.3 and (max(am) - min(noon)) >= 0.15:
+            return "Yesterday's morning layers got carried home by noon — you can probably skip yours."
+    except Exception:
+        pass
+    return None
 
 
 # ---------- aggregate + spectrum + copy ----------
@@ -204,7 +309,24 @@ def aggregate(cam_results: list) -> dict:
         "shorts_count": count(lambda p: p["bottoms"] == "shorts"),
         "skirt_count": count(lambda p: p["bottoms"] == "skirt_or_dress"),
         "tee_count": count(lambda p: p["outer"] in ("short_sleeve", "sleeveless")),
+        "colors": dict(__import__("collections").Counter(
+            p.get("top_color") for p in people
+            if p.get("top_color") and p["top_color"] != "unclear").most_common(6)),
     }
+
+
+def palette_line(agg: dict) -> Optional[str]:
+    colors = agg.get("colors") or {}
+    known = sum(colors.values())
+    if known < 20:
+        return None
+    top = sorted(colors.items(), key=lambda kv: -kv[1])
+    c1, n1 = top[0]
+    if n1 / known >= 0.4:
+        return f"mostly {c1} today"
+    if len(top) > 1 and (n1 + top[1][1]) / known >= 0.5:
+        return f"{c1} & {top[1][0]}, mostly"
+    return "a bit of everything"
 
 
 def build_today(cam_results: list) -> dict:
@@ -216,14 +338,24 @@ def build_today(cam_results: list) -> dict:
     hello = "Good morning ☀️" if hour < 12 else ("Good afternoon ☀️" if hour < 17 else "Good evening 🌆")
 
     noun = next((b[2] for b in BANDS if b[1] == band), "t-shirt")
-    verdict = f"It's a <em>{noun}</em> kind of day."
+
+    # verdict priority ladder: thin sample > big delta vs yesterday > band
+    yref = yesterday_reference()
+    delta = (implied - yref["implied_temp"]) if yref else 0
     if n < 25:
         verdict = "The street's still waking up."
+    elif yref and abs(delta) >= 6:
+        word = "warmer" if delta > 0 else "cooler"
+        verdict = f"Not yesterday: <em>{abs(round(delta))}° {word}</em>."
+    else:
+        verdict = f"It's a <em>{noun}</em> kind of day."
 
     sub = ""
     if wx.get("ok") and n >= 25:
         diff = implied - wx["now_temp"]
-        if diff >= 4:
+        if yref and abs(delta) >= 6:
+            sub = f"The street already adjusted — <b>{noun}</b> mode out there. Yesterday's outfit won't work today."
+        elif diff >= 4:
             sub = f"The forecast says {wx['now_temp']}°, but honestly? Everyone's dressed for <b>warmer</b>. We'd believe them."
         elif diff <= -4:
             sub = f"The forecast says {wx['now_temp']}°, but the street is dressed <b>cozier</b> than that. Worth a listen."
@@ -239,6 +371,9 @@ def build_today(cam_results: list) -> dict:
         {"label": "Umbrellas", "value": rate_phrase(agg["umbrella_count"], n)},
         {"label": "Jackets", "value": rate_phrase(agg["jacket_count"], agg["outer_known"])},
     ]
+    pal = palette_line(agg)
+    if pal:
+        rows.append({"label": "The palette", "value": pal})
 
     cams_out = []
     for r in cam_results:
@@ -249,12 +384,17 @@ def build_today(cam_results: list) -> dict:
                          "boxes": [{"box_2d": p["box_2d"], "label": short_label(p)} for p in r["people"]]})
     cams_out.sort(key=lambda c: -c["people"])
 
+    adv = advisories(wx)
+    od = overdress_advisory()
+    if od:
+        adv = [od] + adv
+    wx_out = {k: v for k, v in wx.items() if k != "hourly"} if wx.get("ok") else None
     today = {"generated_at": datetime.now().isoformat(timespec="seconds"),
              "hello": hello, "verdict_html": verdict, "sub_html": sub,
              "band": band, "implied_temp": implied, "sampled": n,
-             "weather": wx if wx.get("ok") else None,
+             "weather": wx_out, "plan": day_plan(wx), "advisories": adv[:3],
              "wearing": rows, "cams": cams_out[:6],
-             "arc": build_arc(band, noun, wx)}
+             "arc": build_arc(band, noun, wx), "agg": agg}
     return today
 
 
