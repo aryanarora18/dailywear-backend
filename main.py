@@ -152,13 +152,13 @@ def day_plan(wx: dict) -> str:
     def ampm(h):
         return f"{h % 12 or 12}{'pm' if h >= 12 else 'am'}"
     if peak["t"] - t0 >= 8 and peak["t"] - evening["t"] >= 8:
-        return (f"It's {t0}° now but {peak['t']}° by {ampm(peak['h'])}, then back to {evening['t']}° tonight — "
-                f"dress for the afternoon, carry the layer for the ride home.")
+        return (f"It's {t0}° now but {peak['t']}° by {ampm(peak['h'])}, then back to {evening['t']}° tonight. "
+                f"Dress for the afternoon and carry a layer for the ride home.")
     if peak["t"] - t0 >= 8:
-        return f"It only climbs from here — {peak['t']}° by {ampm(peak['h'])}. Dress for later, not for now."
+        return f"It only climbs from here, {peak['t']}° by {ampm(peak['h'])}. Dress for later, not for now."
     if t0 - evening["t"] >= 8:
-        return f"This is the warm part — {evening['t']}° by tonight. Whatever you skip now, you'll want at 9pm."
-    return f"Steady around {t0}° all day — one outfit covers you start to finish."
+        return f"This is the warm part of the day. {evening['t']}° by tonight, so whatever you skip now you'll want at 9pm."
+    return f"Steady around {t0}° all day. One outfit covers you start to finish."
 
 
 def advisories(wx: dict) -> list:
@@ -171,17 +171,17 @@ def advisories(wx: dict) -> list:
     wind = max((p["wind"] for p in hrs[:8]), default=0)
     t = wx["now_temp"]
     if dew is not None and dew >= 70:
-        out.append(f"Dewpoint {dew}° — full frizz conditions. Hair-tie weather.")
+        out.append(f"Dewpoint {dew}. Full frizz conditions, hair-tie weather.")
     elif dew is not None and dew >= 65:
-        out.append(f"A little humid ({dew}° dewpoint) — hair will notice.")
+        out.append(f"A little humid today ({dew} dewpoint). Hair will notice.")
     if wind >= 18:
-        out.append(f"Windy on the avenues (~{wind} mph) — maybe not the flowy skirt day.")
+        out.append(f"Windy on the avenues, around {wind} mph. Maybe not the flowy skirt day.")
     if t >= 85:
-        out.append("Subway platforms run ~15° hotter than the street — dress for the platform.")
+        out.append("Subway platforms run about 15 degrees hotter than the street. Dress for the platform.")
     if t >= 88:
-        out.append("Every office and store will overcorrect the AC — desk layer advised.")
+        out.append("Every office and store will overcorrect the AC. Keep a desk layer handy.")
     if t <= 25:
-        out.append("Overheated stores and subway cars ahead — layers you can peel beat one big coat.")
+        out.append("Overheated stores and subway cars ahead. Layers you can peel beat one big coat.")
     return out[:3]
 
 
@@ -223,7 +223,7 @@ def overdress_advisory() -> Optional[str]:
                 elif 12 <= hr <= 15:
                     noon.append(agg["jacket_rate"] + agg["hoodie_rate"])
         if am and noon and max(am) >= 0.3 and (max(am) - min(noon)) >= 0.15:
-            return "Yesterday's morning layers got carried home by noon — you can probably skip yours."
+            return "Yesterday's morning layers got carried home by noon. You can probably skip yours."
     except Exception:
         pass
     return None
@@ -354,7 +354,7 @@ def build_today(cam_results: list) -> dict:
     if wx.get("ok") and n >= 25:
         diff = implied - wx["now_temp"]
         if yref and abs(delta) >= 6:
-            sub = f"The street already adjusted — <b>{noun}</b> mode out there. Yesterday's outfit won't work today."
+            sub = f"The street already adjusted, <b>{noun}</b> mode out there. Yesterday's outfit won't work today."
         elif diff >= 4:
             sub = f"The forecast says {wx['now_temp']}°, but honestly? Everyone's dressed for <b>warmer</b>. We'd believe them."
         elif diff <= -4:
