@@ -10,6 +10,13 @@ import os
 import threading
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+NYC = ZoneInfo("America/New_York")
+
+
+def now_et() -> datetime:
+    return datetime.now(NYC)
 from typing import Optional
 
 import requests
@@ -188,14 +195,14 @@ def advisories(wx: dict) -> list:
 def yesterday_reference() -> Optional[dict]:
     """Yesterday's sweep nearest to this hour (n>=25), for delta headlines."""
     try:
-        y = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        y = (now_et() - timedelta(days=1)).strftime("%Y%m%d")
         best = None
         hdir = os.path.join(DATA, "history")
         for f in os.listdir(hdir):
             if f.startswith(y):
                 h = json.load(open(os.path.join(hdir, f)))
                 if h.get("sampled", 0) >= 25:
-                    gap = abs(datetime.fromisoformat(h["generated_at"]).hour - datetime.now().hour)
+                    gap = abs(datetime.fromisoformat(h["generated_at"]).hour - now_et().hour)
                     if best is None or gap < best[0]:
                         best = (gap, h)
         return best[1] if best and best[0] <= 2 else None
@@ -205,10 +212,10 @@ def yesterday_reference() -> Optional[dict]:
 
 def overdress_advisory() -> Optional[str]:
     """Did yesterday's morning jackets get abandoned by noon? Then say so this morning."""
-    if datetime.now().hour >= 11:
+    if now_et().hour >= 11:
         return None
     try:
-        y = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        y = (now_et() - timedelta(days=1)).strftime("%Y%m%d")
         hdir = os.path.join(DATA, "history")
         am, noon = [], []
         for f in os.listdir(hdir):
@@ -334,7 +341,7 @@ def build_today(cam_results: list) -> dict:
     wx = nws()
     band, implied = implied_band(agg)
     n = agg["n"]
-    hour = datetime.now().hour
+    hour = now_et().hour
     hello = "Good morning ☀️" if hour < 12 else ("Good afternoon ☀️" if hour < 17 else "Good evening 🌆")
 
     noun = next((b[2] for b in BANDS if b[1] == band), "t-shirt")
@@ -389,7 +396,7 @@ def build_today(cam_results: list) -> dict:
     if od:
         adv = [od] + adv
     wx_out = {k: v for k, v in wx.items() if k != "hourly"} if wx.get("ok") else None
-    today = {"generated_at": datetime.now().isoformat(timespec="seconds"),
+    today = {"generated_at": now_et().isoformat(timespec="seconds"),
              "hello": hello, "verdict_html": verdict, "sub_html": sub,
              "band": band, "implied_temp": implied, "sampled": n,
              "weather": wx_out, "plan": day_plan(wx), "advisories": adv[:3],
@@ -406,7 +413,7 @@ def build_arc(now_band: str, now_noun: str, wx: dict) -> list:
     """morning = earliest sweep today · now = this sweep · tonight = NWS forecast, not clothes."""
     morning = None
     try:
-        stamp_prefix = datetime.now().strftime("%Y%m%d")
+        stamp_prefix = now_et().strftime("%Y%m%d")
         hist = sorted(f for f in os.listdir(os.path.join(DATA, "history")) if f.startswith(stamp_prefix))
         for f in hist:
             h = json.load(open(os.path.join(DATA, "history", f)))
@@ -483,7 +490,7 @@ gcs_restore()
 def save_today(today: dict):
     with _lock:
         json.dump(today, open(os.path.join(DATA, "today.json"), "w"))
-        stamp = datetime.now().strftime("%Y%m%d-%H%M")
+        stamp = now_et().strftime("%Y%m%d-%H%M")
         json.dump(today, open(os.path.join(DATA, "history", f"{stamp}.json"), "w"))
         # daily self-audit log: implied vs official, accumulates calibration data from day one
         if today.get("weather"):
@@ -527,7 +534,7 @@ def run_sweep() -> dict:
     today = build_today(results)
     save_today(today)
     try:
-        archive_eval_samples(results, datetime.now().strftime("%Y%m%d-%H%M"))
+        archive_eval_samples(results, now_et().strftime("%Y%m%d-%H%M"))
     except Exception as e:
         print(f"[eval] archive failed: {e}", flush=True)
     return today
@@ -662,7 +669,7 @@ def api_feedback(req: FeedbackReq):
     text = req.text.strip()[:2000]
     if text:
         with _lock, open(os.path.join(DATA, "feedback.jsonl"), "a") as f:
-            f.write(json.dumps({"ts": datetime.now().isoformat(timespec="seconds"), "text": text}) + "\n")
+            f.write(json.dumps({"ts": now_et().isoformat(timespec="seconds"), "text": text}) + "\n")
         gcs_put("feedback.jsonl")
     return {"ok": True}
 
@@ -684,7 +691,7 @@ def healthz():
 
 def _sweep_loop():
     while True:
-        now = datetime.now()
+        now = now_et()
         if 7 <= now.hour <= 20:
             try:
                 t = run_sweep()
