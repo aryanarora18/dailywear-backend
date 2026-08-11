@@ -269,11 +269,12 @@ BANDS = [  # (min_implied_F, name, verdict_noun)
 ]
 
 
-def implied_band(agg: dict) -> tuple:
-    """Map clothing rates to a band + implied temp. Crude v1; self-calibrates later vs NWS log."""
+def raw_implied_temp(agg: dict) -> int:
+    """Map clothing rates to a raw implied temp. Deliberately uncorrected; the
+    context-bucket offset learned from calibration.jsonl is applied on top."""
     n = agg["n"]
     if n == 0:
-        return ("unknown", 70)
+        return 70
     shorts = agg["shorts_rate"] + agg["skirt_rate"]
     jackets = agg["jacket_rate"] + agg["hoodie_rate"]
     bare = agg["short_sleeve_rate"] + agg["sleeveless_rate"]
@@ -289,8 +290,51 @@ def implied_band(agg: dict) -> tuple:
         t = 50
     else:
         t = 38
-    band = next(b for b in BANDS if t >= b[0])
-    return (band[1], t)
+    return t
+
+
+HOLIDAYS = {"2026-09-07", "2026-10-12", "2026-11-11", "2026-11-26", "2026-11-27",
+            "2026-12-25", "2027-01-01", "2027-01-18", "2027-02-15", "2027-05-31",
+            "2027-07-05", "2027-09-06"}
+
+
+def context_bucket(dt: datetime) -> str:
+    """Weekday commute hours dress for the office; weekends dress for the weather."""
+    if dt.strftime("%Y-%m-%d") in HOLIDAYS or dt.weekday() >= 5:
+        return "weekend"
+    if 7 <= dt.hour <= 10 or 16 <= dt.hour <= 19:
+        return "commute"
+    if dt.hour < 16:
+        return "midday"
+    return "evening"
+
+
+DEFAULT_OFFSET = 12.0   # measured global bias, first two days of calibration log
+
+
+def learned_offset(bucket: str) -> float:
+    """Average (official - raw implied) over the last 21 days for this bucket.
+    Falls back to all buckets pooled, then to the static default. Clamped 0..20."""
+    try:
+        cutoff = now_et() - timedelta(days=21)
+        rows = []
+        for line in open(os.path.join(DATA, "calibration.jsonl")):
+            r = json.loads(line)
+            if r.get("n", 0) < 25:
+                continue
+            ts = datetime.fromisoformat(r["ts"])
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=NYC)
+            if ts < cutoff:
+                continue
+            rows.append((context_bucket(ts), r["official"] - r["implied"]))
+        mine = [g for b, g in rows if b == bucket]
+        pool = mine if len(mine) >= 8 else [g for _, g in rows]
+        if len(pool) < 8:
+            return DEFAULT_OFFSET
+        return max(0.0, min(20.0, sum(pool) / len(pool)))
+    except Exception:
+        return DEFAULT_OFFSET
 
 
 def rate_phrase(k: int, n: int) -> str:
@@ -363,8 +407,12 @@ def palette_line(agg: dict) -> Optional[str]:
 def build_today(cam_results: list) -> dict:
     agg = aggregate(cam_results)
     wx = nws()
-    band, implied = implied_band(agg)
     n = agg["n"]
+    raw = raw_implied_temp(agg)
+    bucket = context_bucket(now_et())
+    offset = learned_offset(bucket) if n else 0.0
+    implied = round(raw + offset)
+    band = "unknown" if n == 0 else next(b[1] for b in BANDS if implied >= b[0])
     hour = now_et().hour
     hello = "Good morning ☀️" if hour < 12 else ("Good afternoon ☀️" if hour < 17 else "Good evening 🌆")
 
@@ -427,7 +475,8 @@ def build_today(cam_results: list) -> dict:
     wx_out = {k: v for k, v in wx.items() if k != "hourly"} if wx.get("ok") else None
     today = {"generated_at": now_et().isoformat(timespec="seconds"),
              "hello": hello, "verdict_html": verdict, "sub_html": sub,
-             "band": band, "implied_temp": implied, "sampled": n,
+             "band": band, "implied_temp": implied, "implied_raw": raw,
+             "offset": round(offset, 1), "bucket": bucket, "sampled": n,
              "weather": wx_out, "plan": day_plan(wx), "advisories": adv[:3],
              "push": {"title": push_title, "body": push_body},
              "wearing": rows, "cams": cams_out[:6],
@@ -525,7 +574,9 @@ def save_today(today: dict):
         # daily self-audit log: implied vs official, accumulates calibration data from day one
         if today.get("weather"):
             with open(os.path.join(DATA, "calibration.jsonl"), "a") as f:
-                f.write(json.dumps({"ts": today["generated_at"], "implied": today["implied_temp"],
+                f.write(json.dumps({"ts": today["generated_at"], "implied": today["implied_raw"],
+                                    "corrected": today["implied_temp"], "offset": today["offset"],
+                                    "bucket": today["bucket"],
                                     "official": today["weather"]["now_temp"], "n": today["sampled"]}) + "\n")
     for rel in ("today.json", f"history/{stamp}.json", "calibration.jsonl"):
         gcs_put(rel)
