@@ -140,8 +140,12 @@ def nws() -> dict:
             hourly.append({"h": datetime.fromisoformat(p["startTime"]).hour, "t": p["temperature"],
                            "dew": round(dpc * 9 / 5 + 32) if dpc is not None else None,
                            "wind": mph(p.get("windSpeed"))})
+        today_date = now_et().strftime("%Y-%m-%d")
+        tom = next((p for p in dp if p.get("isDaytime") and p["startTime"][:10] > today_date), None)
         return {"now_temp": now["temperature"], "feels": now["temperature"], "cond": now["shortForecast"],
                 "high": max(temps), "low": min(temps), "tonight_temp": tonight["temperature"],
+                "tomorrow_high": tom["temperature"] if tom else None,
+                "tomorrow_cond": tom["shortForecast"] if tom else None,
                 "issue": (f"{issue} later" if issue else "No rain expected"), "ok": True,
                 "hourly": hourly}
     except Exception:
@@ -480,8 +484,22 @@ def build_today(cam_results: list) -> dict:
              "weather": wx_out, "plan": day_plan(wx), "advisories": adv[:3],
              "push": {"title": push_title, "body": push_body},
              "wearing": rows, "cams": cams_out[:6],
-             "arc": build_arc(band, noun, wx), "agg": agg}
+             "arc": build_arc(band, noun, wx), "agg": agg,
+             "night": build_night(band, noun, wx)}
     return today
+
+
+def build_night(band: str, noun: str, wx: dict) -> Optional[dict]:
+    """Shown by the frontend after 8pm: the day is over, pivot to tomorrow."""
+    if not wx.get("ok") or not wx.get("tomorrow_high"):
+        return None
+    tnoun = band_noun(wx["tomorrow_high"] - 4)
+    cond = (wx.get("tomorrow_cond") or "").lower()
+    sub = f"Tomorrow: {cond}, high {wx['tomorrow_high']}°. Tonight stays around {wx['tonight_temp']}°."
+    return {"hello": "Good night 🌙",
+            "verdict_html": f"Tomorrow looks like <em>{tnoun}</em> weather.",
+            "sub_html": sub,
+            "plan": f"The street clocked out in {noun} mode. First fresh read lands with the 7:40am note."}
 
 
 def band_noun(temp: int) -> str:
@@ -614,6 +632,8 @@ def run_sweep() -> dict:
         results = [r for r in ex.map(sweep_cam, CAMS) if r]
     today = build_today(results)
     save_today(today)
+    for c in today["cams"]:
+        gcs_put(f"frames/{c['cam_id']}.jpg")
     try:
         archive_eval_samples(results, now_et().strftime("%Y%m%d-%H%M"))
     except Exception as e:
@@ -756,8 +776,17 @@ def api_feedback(req: FeedbackReq):
 
 @app.get("/api/frame/{cam_id}")
 def api_frame(cam_id: str):
+    if "/" in cam_id or ".." in cam_id:
+        raise HTTPException(404)
     path = os.path.join(DATA, "frames", f"{cam_id}.jpg")
-    if not os.path.exists(path) or "/" in cam_id or ".." in cam_id:
+    if not os.path.exists(path):
+        try:
+            b = gcs_bucket()
+            if b:
+                b.blob(f"frames/{cam_id}.jpg").download_to_filename(path)
+        except Exception:
+            pass
+    if not os.path.exists(path):
         raise HTTPException(404)
     return FileResponse(path, media_type="image/jpeg")
 
